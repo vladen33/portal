@@ -103,6 +103,11 @@ venv/bin/python manage.py setup_portal_roles
 venv/bin/python manage.py check --deploy
 ```
 
+`check --deploy` не покажет предупреждений, если в `.env` включены
+`DJANGO_SECURE_SSL_REDIRECT`, `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS`
+и `DJANGO_SECURE_HSTS_PRELOAD`. Две последние опции включайте только
+тогда, когда все поддомены домена тоже обслуживаются по HTTPS.
+
 4. Установить unit и конфиг nginx:
 
 ```bash
