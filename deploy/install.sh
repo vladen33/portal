@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Установщик портала СМК на Ubuntu/Debian.
+# Установщик портала на Ubuntu/Debian.
 #
 # Примеры:
 #   sudo deploy/install.sh --db=docker --domain=portal.example.local
@@ -70,7 +70,7 @@ VALUE_OPTS=" --db --app-dir --app-user --domain --tls --cert --key \
 
 usage() {
     cat <<'EOF'
-Установщик портала СМК (Ubuntu/Debian).
+Установщик портала (Ubuntu/Debian).
 
 Режимы базы:
   --db=docker            MS SQL Server в контейнере на этом сервере

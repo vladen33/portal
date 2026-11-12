@@ -22,8 +22,8 @@
     <label class="radio-row">
       {{ radio.tag }}
       <span>{{ radio.choice_label }}</span>
-      {% if radio.data.value == 'ad' %}
-      <span class="hint">будет доступно позже</span>
+      {% if radio.data.value == 'ad' and not ad_enabled %}
+      <span class="hint">не настроен администратором</span>
       {% endif %}
     </label>
     {% endfor %}

@@ -26,6 +26,20 @@ def test_login_page_shows_mode_switch(client):
     assert 'Active Directory' in content
 
 
+def test_login_shows_hint_when_ad_disabled(client, settings):
+    """Пока AD не настроен, у режима входа есть пояснение."""
+    settings.AD_ENABLED = False
+    response = client.get(reverse('accounts:login'))
+    assert 'не настроен администратором' in response.content.decode()
+
+
+def test_login_hides_hint_when_ad_enabled(client, settings):
+    """При включённом AD пояснение о ненастроенном входе не выводится."""
+    settings.AD_ENABLED = True
+    response = client.get(reverse('accounts:login'))
+    assert 'не настроен администратором' not in response.content.decode()
+
+
 def test_local_login_success(client, user):
     """Вход по учётной записи портала ведёт на главную страницу."""
     response = client.post(

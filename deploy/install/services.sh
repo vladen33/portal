@@ -53,7 +53,7 @@ services_backup_cron() {
     # Без запущенной службы cron запись не сработает.
     run systemctl enable --now cron
     {
-        printf '# Резервная копия портала СМК (создано deploy/install.sh)\n'
+        printf '# Резервная копия портала (создано deploy/install.sh)\n'
         printf 'MAILTO=""\n'
         printf '%s root APP_DIR=%s BACKUP_DIR=%s RETENTION_DAYS=%s ' \
             "$BACKUP_SCHEDULE" "$APP_DIR" "$BACKUP_DIR" \

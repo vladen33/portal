@@ -1,11 +1,11 @@
-"""Конфигурация gunicorn для портала СМК.
+"""Конфигурация gunicorn для портала.
 
 Запуск (systemd передаёт рабочую директорию проекта):
 
     venv/bin/gunicorn --config deploy/gunicorn.conf.py config.wsgi
 
-Gunicorn слушает unix-сокет: наружу порт не публикуется, запросы
-приходят только от nginx.
+Gunicorn слушает 127.0.0.1:8000 (см. ``bind`` ниже): наружу порт
+не публикуется, запросы приходят только от nginx.
 """
 
 import multiprocessing
