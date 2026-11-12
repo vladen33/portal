@@ -10,11 +10,11 @@
 <body>
 <header class="site-header">
   <div class="brand">
-    <a href="/">Портал</a>
+    <a href="{% url 'core:home' %}">Портал</a>
   </div>
   {% if user.is_authenticated %}
   <nav class="site-nav">
-    <a href="{% url 'documents:list' %}">Документы</a>
+    <a href="{% url 'core:home' %}">Главная</a>
     {% if user.is_staff %}
     <a href="{% url 'admin:index' %}">Администрирование</a>
     {% endif %}

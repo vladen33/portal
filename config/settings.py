@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 
 from django.contrib.messages import constants as message_constants
+from django.urls import reverse_lazy
 from dotenv import load_dotenv
 
 # Базовый каталог проекта: /home/vlad/Dev/portal.
@@ -119,7 +120,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Локальные приложения проекта.
     'accounts',
-    'documents',
+    'core',
 ]
 
 MIDDLEWARE = [
@@ -209,7 +210,8 @@ AUTH_USER_MODEL = 'accounts.User'
 # доменные (включается только при AD_ENABLED=True).
 
 LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/documents/'
+# После входа сотрудник попадает на главную страницу портала.
+LOGIN_REDIRECT_URL = reverse_lazy('core:home')
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # --- Active Directory -------------------------------------------------------
@@ -318,10 +320,10 @@ STORAGES = {
     },
 }
 
-# Загруженные редакции документов СМК (PDF, DOCX и т.п.).
-# На production каталог должен быть вне web-root nginx: файлы
-# отдаёт только RevisionFileView. Путь задаётся DJANGO_MEDIA_ROOT,
-# например /var/lib/portal/media.
+# Загруженные пользователями файлы (появятся вместе с первыми
+# разделами портала). На production каталог должен быть вне
+# web-root nginx: файлы отдаёт Django после проверки прав доступа.
+# Путь задаётся DJANGO_MEDIA_ROOT, например /var/lib/portal/media.
 MEDIA_URL = 'media/'
 MEDIA_ROOT = Path(
     os.getenv('DJANGO_MEDIA_ROOT', str(BASE_DIR / 'media')),

@@ -25,7 +25,7 @@ select = ["E", "F", "W", "I", "DJ"]
 
 [tool.ruff.lint.isort]
 # Локальные приложения проекта, чтобы ruff не считал их сторонними.
-known-first-party = ["accounts", "documents", "config"]
+known-first-party = ["accounts", "core", "config"]
 
 [tool.ruff.format]
 # Форматтер ruff; одинарные кавычки — стиль Django-сообщества.
@@ -40,7 +40,7 @@ python_files = ["test_*.py", "*_test.py"]
 # Последовательный запуск одного теста — только явно: pytest -n0 <тест>.
 addopts = "-n auto -q --strict-markers"
 # Каталоги, в которых ищем тесты.
-testpaths = ["accounts", "documents"]
+testpaths = ["accounts", "core"]
 # Сторонние библиотеки шумят DeprecationWarning при импорте:
 # ldap3 использует устаревшие имена из pyasn1.
 filterwarnings = [

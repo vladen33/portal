@@ -1,7 +1,7 @@
-# Сайт портала СМК с TLS. Файл создан deploy/install.sh.
+# Сайт портала с TLS. Файл создан deploy/install.sh.
 #
-# Файлы редакций (MEDIA_ROOT) намеренно НЕ раздаются как статика:
-# их отдаёт Django после проверки входа (RevisionFileView).
+# Файлы из MEDIA_ROOT намеренно НЕ раздаются как статика:
+# их отдаёт Django после проверки прав доступа.
 
 upstream portal {
     server 127.0.0.1:8000 fail_timeout=0;
@@ -31,7 +31,7 @@ server {
     ssl_prefer_server_ciphers off;
     ssl_session_cache shared:SSL:10m;
 
-    # Размер одной загружаемой редакции документа.
+    # Максимальный размер загружаемого файла.
     client_max_body_size 50m;
 
     # Статику собирает collectstatic, nginx отдаёт её напрямую.
@@ -39,17 +39,6 @@ server {
         alias @APP_DIR@/staticfiles/;
         expires 30d;
         access_log off;
-    }
-
-    # Файлы редакций: отдаёт Django, без буферизации.
-    location ~ ^/documents/.*/file/$ {
-        proxy_pass http://portal;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off;
-        proxy_read_timeout 300s;
     }
 
     location / {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Резервная копия портала СМК: база MS SQL Server и файлы редакций.
+# Резервная копия портала: база MS SQL Server и файлы из MEDIA_ROOT.
 #
 # Пример запуска из cron (каждый день в 2:30):
 #   30 2 * * * /srv/portal/deploy/backup.sh \
@@ -52,7 +52,7 @@ docker cp "${MSSQL_CONTAINER}:${DB_FILE}" \
     "${BACKUP_DIR}/${DB_NAME}-${STAMP}.bak"
 docker exec "${MSSQL_CONTAINER}" rm -f "${DB_FILE}"
 
-# --- Файлы редакций -------------------------------------------------------
+# --- Файлы MEDIA_ROOT ------------------------------------------------------
 if [ -d "${MEDIA_DIR}" ]; then
     tar -C "$(dirname "${MEDIA_DIR}")" \
         -czf "${BACKUP_DIR}/media-${STAMP}.tar.gz" \

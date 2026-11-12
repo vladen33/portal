@@ -27,7 +27,7 @@ def test_login_page_shows_mode_switch(client):
 
 
 def test_local_login_success(client, user):
-    """Вход по учётной записи портала ведёт к списку документов."""
+    """Вход по учётной записи портала ведёт на главную страницу."""
     response = client.post(
         reverse('accounts:login'),
         {
@@ -37,7 +37,7 @@ def test_local_login_success(client, user):
         },
     )
     assert response.status_code == 302
-    assert response.url == reverse('documents:list')
+    assert response.url == reverse('core:home')
     assert client.session['_auth_user_id'] == str(user.pk)
 
 

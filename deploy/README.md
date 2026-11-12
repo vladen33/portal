@@ -9,5 +9,5 @@
 - `db_create.py` — проверка подключения к MSSQL и создание базы;
 - `docker-compose.mssql.yml` — MS SQL Server в Docker;
 - `gunicorn.conf.py` — конфигурация gunicorn;
-- `backup.sh` — резервная копия базы MSSQL и файлов редакций;
+- `backup.sh` — резервная копия базы MSSQL и файлов из `MEDIA_ROOT`;
 - `README.md` — этот файл.
