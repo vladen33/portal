@@ -76,7 +76,60 @@ backend при импорте подгружает `pyodbc`.
 редакция» создаётся фильтрованным уникальным индексом
 `WHERE [is_current]=(1)`, поиск по кириллице регистронезависим.
 
-## Вход через Active Directory
+## Production-контур
+
+Компоненты: gunicorn (systemd) → unix-сокет → nginx (TLS, статика),
+Django с `DEBUG=False`, MS SQL Server в локальной сети.
+
+1. Разместить проект в `/srv/portal-ksmk`, создать пользователя
+   `portal`, установить зависимости в `venv`, заполнить `.env`
+   (образец — `.env.example`, раздел «Production-контур»).
+2. Создать каталоги вне web-root nginx и выдать права пользователю
+   `portal`:
+
+```bash
+sudo mkdir -p /var/lib/portal-ksmk/media /var/log/portal-ksmk
+sudo chown -R portal:portal /var/lib/portal-ksmk
+```
+
+3. Собрать статику и применить миграции от имени пользователя
+   `portal`:
+
+```bash
+cd /srv/portal-ksmk
+venv/bin/python manage.py collectstatic --noinput
+venv/bin/python manage.py migrate
+venv/bin/python manage.py setup_portal_roles
+venv/bin/python manage.py check --deploy
+```
+
+4. Установить unit и конфиг nginx:
+
+```bash
+sudo cp deploy/portal-ksmk.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now portal-ksmk
+
+sudo cp deploy/nginx-portal-ksmk.conf \
+    /etc/nginx/sites-available/portal-ksmk.conf
+sudo ln -s /etc/nginx/sites-available/portal-ksmk.conf \
+    /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+5. Бэкапы: `deploy/backup.sh` делает `BACKUP DATABASE` через
+   `sqlcmd` в контейнере/на сервере MSSQL, архивирует `MEDIA_ROOT`
+   и удаляет копии старше `RETENTION_DAYS` (30 по умолчанию).
+   Пример записи в cron:
+
+```
+30 2 * * * /srv/portal-ksmk/deploy/backup.sh >> /var/log/portal-ksmk-backup.log 2>&1
+```
+
+Файлы редакций в nginx отдельной локацией не раздаются: их отдаёт
+`RevisionFileView` после проверки входа. Локация
+`/documents/.../file/` проксируется с выключенной буферизацией,
+чтобы большие файлы шли потоком.
 
 На портале две категории пользователей:
 

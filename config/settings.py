@@ -42,6 +42,14 @@ def env_list(name, default=''):
     return [item.strip() for item in raw.split(',') if item.strip()]
 
 
+def env_int(name, default=0):
+    """Читает целое число из окружения, не падая на пустом значении."""
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return default
+    return int(value)
+
+
 # --- Безопасность -----------------------------------------------------------
 
 # Секретный ключ хранится только в .env, а не в репозитории.
@@ -56,6 +64,48 @@ DEBUG = env_bool('DJANGO_DEBUG', default=True)
 ALLOWED_HOSTS = env_list(
     'DJANGO_ALLOWED_HOSTS',
     '127.0.0.1,localhost',
+)
+
+# --- Настройки production-контура ------------------------------------------
+
+# За nginx Django узнаёт про HTTPS из заголовка X-Forwarded-Proto,
+# который выставляет reverse proxy.
+USE_PROXY_TLS = env_bool('DJANGO_USE_PROXY_TLS', default=not DEBUG)
+if USE_PROXY_TLS:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Домены, с которых разрешены POST-запросы (если портал открыт
+# не только по своему основному имени).
+CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS', '')
+
+# Редирект http -> https. За nginx включаем вместе с USE_PROXY_TLS.
+SECURE_SSL_REDIRECT = env_bool(
+    'DJANGO_SECURE_SSL_REDIRECT',
+    default=False,
+)
+
+# Cookie сессии и CSRF передаются только по HTTPS.
+SESSION_COOKIE_SECURE = env_bool(
+    'DJANGO_SESSION_COOKIE_SECURE',
+    default=not DEBUG,
+)
+CSRF_COOKIE_SECURE = env_bool(
+    'DJANGO_CSRF_COOKIE_SECURE',
+    default=not DEBUG,
+)
+
+# HSTS включаем один год только для production (после настройки TLS).
+SECURE_HSTS_SECONDS = env_int(
+    'DJANGO_SECURE_HSTS_SECONDS',
+    default=31536000 if not DEBUG else 0,
+)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+    'DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS',
+    default=False,
+)
+SECURE_HSTS_PRELOAD = env_bool(
+    'DJANGO_SECURE_HSTS_PRELOAD',
+    default=False,
 )
 
 # --- Приложения -------------------------------------------------------------
@@ -242,7 +292,10 @@ STATIC_URL = 'static/'
 # Дополнительные каталоги статики проекта (не приложений).
 STATICFILES_DIRS = [BASE_DIR / 'static']
 # Сюда collectstatic складывает статику для production.
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+# На сервере путь можно вынести наружу через DJANGO_STATIC_ROOT.
+STATIC_ROOT = Path(
+    os.getenv('DJANGO_STATIC_ROOT', str(BASE_DIR / 'staticfiles')),
+)
 
 STORAGES = {
     'default': {
@@ -261,8 +314,13 @@ STORAGES = {
 }
 
 # Загруженные редакции документов СМК (PDF, DOCX и т.п.).
+# На production каталог должен быть вне web-root nginx: файлы
+# отдаёт только RevisionFileView. Путь задаётся DJANGO_MEDIA_ROOT,
+# например /var/lib/portal-ksmk/media.
 MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = Path(
+    os.getenv('DJANGO_MEDIA_ROOT', str(BASE_DIR / 'media')),
+)
 
 # --- Прочее -----------------------------------------------------------------
 

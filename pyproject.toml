@@ -12,7 +12,6 @@ extend-exclude = [
     "venv",
     "media",
     "staticfiles",
-    "deploy",
     "**/migrations",
 ]
 

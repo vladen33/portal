@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#
+# Резервная копия портала СМК: база MS SQL Server и файлы редакций.
+#
+# Пример запуска из cron (каждый день в 2:30):
+#   30 2 * * * /srv/portal-ksmk/deploy/backup.sh \
+#       >> /var/log/portal-ksmk-backup.log 2>&1
+#
+# Переменные DB_* берутся из .env проекта. BACKUP_DIR, RETENTION_DAYS
+# и MSSQL_CONTAINER можно переопределить в окружении cron.
+set -euo pipefail
+
+APP_DIR="${APP_DIR:-/srv/portal-ksmk}"
+ENV_FILE="${APP_DIR}/.env"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/portal-ksmk}"
+RETENTION_DAYS="${RETENTION_DAYS:-30}"
+MSSQL_CONTAINER="${MSSQL_CONTAINER:-portal-ksmk-mssql}"
+
+read_env() {
+    # Читает значение из .env без исполнения файла: секреты могут
+    # содержать символы, опасные для bash ($, (, ), !, %).
+    grep -E "^$1=" "${ENV_FILE}" 2>/dev/null \
+        | tail -n 1 \
+        | cut -d= -f2- \
+        | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+}
+
+DB_NAME="${DB_NAME:-$(read_env DB_NAME)}"
+DB_USER="${DB_USER:-$(read_env DB_USER)}"
+DB_PASSWORD="${DB_PASSWORD:-$(read_env DB_PASSWORD)}"
+MEDIA_DIR="${DJANGO_MEDIA_ROOT:-$(read_env DJANGO_MEDIA_ROOT)}"
+MEDIA_DIR="${MEDIA_DIR:-${APP_DIR}/media}"
+
+: "${DB_NAME:?DB_NAME не задан в .env}"
+: "${DB_USER:?DB_USER не задан в .env}"
+: "${DB_PASSWORD:?DB_PASSWORD не задан в .env}"
+
+STAMP="$(date +%Y%m%d-%H%M%S)"
+mkdir -p "${BACKUP_DIR}"
+
+# --- База данных ----------------------------------------------------------
+DB_FILE="/var/opt/mssql/backup/${DB_NAME}-${STAMP}.bak"
+docker exec "${MSSQL_CONTAINER}" mkdir -p /var/opt/mssql/backup
+docker exec "${MSSQL_CONTAINER}" \
+    /opt/mssql-tools18/bin/sqlcmd \
+    -S localhost -U "${DB_USER}" -P "${DB_PASSWORD}" -C \
+    -Q "BACKUP DATABASE [${DB_NAME}] TO DISK = N'${DB_FILE}' WITH INIT, CHECKSUM"
+docker cp "${MSSQL_CONTAINER}:${DB_FILE}" \
+    "${BACKUP_DIR}/${DB_NAME}-${STAMP}.bak"
+docker exec "${MSSQL_CONTAINER}" rm -f "${DB_FILE}"
+
+# --- Файлы редакций -------------------------------------------------------
+if [ -d "${MEDIA_DIR}" ]; then
+    tar -C "$(dirname "${MEDIA_DIR}")" \
+        -czf "${BACKUP_DIR}/media-${STAMP}.tar.gz" \
+        "$(basename "${MEDIA_DIR}")"
+else
+    echo "Каталог ${MEDIA_DIR} отсутствует, файлы не архивируются."
+fi
+
+# --- Ротация --------------------------------------------------------------
+find "${BACKUP_DIR}" -type f -mtime "+${RETENTION_DAYS}" -delete
+chmod 600 "${BACKUP_DIR}"/* 2>/dev/null || true
+
+echo "Готово: ${BACKUP_DIR} (${STAMP})"
