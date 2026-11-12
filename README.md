@@ -1,4 +1,4 @@
-# portal-ksmk — портал документов СМК
+# portal — портал документов СМК
 
 Веб-приложение для работы с документами системы менеджмента качества:
 карточки документов, их редакции, просмотр и фиксация ознакомления
@@ -53,7 +53,7 @@ sudo apt install -y libodbc2
 sudo usermod -aG docker "$USER"        # потребуется перелогин
 
 # в .env: MSSQL_SA_PASSWORD, DB_ENGINE=mssql, DB_USER=sa,
-# DB_PASSWORD=<тот же пароль>, DB_HOST=127.0.0.1, DB_NAME=portal_ksmk
+# DB_PASSWORD=<тот же пароль>, DB_HOST=127.0.0.1, DB_NAME=portal
 docker compose -f deploy/docker-compose.mssql.yml up -d
 
 venv/bin/python manage.py migrate
@@ -120,9 +120,9 @@ nginx проксирует на него по TLS, статику отдаёт �
 Проверка после установки:
 
 ```bash
-systemctl status portal-ksmk nginx
-journalctl -u portal-ksmk -n 50
-cd /srv/portal-ksmk && venv/bin/python manage.py check --deploy
+systemctl status portal nginx
+journalctl -u portal -n 50
+cd /srv/portal && venv/bin/python manage.py check --deploy
 ```
 
 `check --deploy` не покажет предупреждений, если в `.env` включены

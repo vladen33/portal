@@ -4,15 +4,15 @@
 # поэтому shellcheck не видит переменные, объявленные в соседях.
 # nginx, TLS и правила firewall.
 
-NGINX_SITE="/etc/nginx/sites-available/portal-ksmk.conf"
-NGINX_ENABLED="/etc/nginx/sites-enabled/portal-ksmk.conf"
+NGINX_SITE="/etc/nginx/sites-available/portal.conf"
+NGINX_ENABLED="/etc/nginx/sites-enabled/portal.conf"
 
 # Готовит сертификаты: самоподписанные, готовые или режим без TLS.
 webserver_prepare_tls() {
     case "$TLS_MODE" in
         selfsigned)
-            CERT="/etc/ssl/certs/portal-ksmk.crt"
-            KEY="/etc/ssl/private/portal-ksmk.key"
+            CERT="/etc/ssl/certs/portal.crt"
+            KEY="/etc/ssl/private/portal.key"
             if [ -f "$CERT" ] && [ -f "$KEY" ]; then
                 log "самоподписанный сертификат уже существует"
                 return 0

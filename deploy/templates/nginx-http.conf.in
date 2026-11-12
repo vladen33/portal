@@ -4,7 +4,7 @@
 # по сети открытым текстом. Используйте только в изолированном
 # сегменте и как можно быстрее переходите на TLS.
 
-upstream portal_ksmk {
+upstream portal {
     server 127.0.0.1:8000 fail_timeout=0;
 }
 
@@ -21,7 +21,7 @@ server {
     }
 
     location ~ ^/documents/.*/file/$ {
-        proxy_pass http://portal_ksmk;
+        proxy_pass http://portal;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -31,7 +31,7 @@ server {
     }
 
     location / {
-        proxy_pass http://portal_ksmk;
+        proxy_pass http://portal;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

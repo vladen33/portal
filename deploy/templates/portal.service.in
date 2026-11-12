@@ -1,5 +1,5 @@
 [Unit]
-Description=portal-ksmk — портал документов СМК
+Description=portal — портал документов СМК
 Documentation=file://@APP_DIR@/README.md
 After=network-online.target
 Wants=network-online.target

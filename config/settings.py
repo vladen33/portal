@@ -1,4 +1,4 @@
-"""Настройки проекта portal-ksmk — портала документов СМК.
+"""Настройки проекта portal — портала документов СМК.
 
 Проект работает с двумя СУБД:
 
@@ -16,7 +16,7 @@ from pathlib import Path
 from django.contrib.messages import constants as message_constants
 from dotenv import load_dotenv
 
-# Базовый каталог проекта: /home/vlad/Dev/portal-ksmk.
+# Базовый каталог проекта: /home/vlad/Dev/portal.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Загружаем переменные из .env. Если файла нет, используются
@@ -166,7 +166,7 @@ if DB_ENGINE == 'mssql':
         'default': {
             # Драйвер от Microsoft — pip-пакет mssql-django.
             'ENGINE': 'mssql',
-            'NAME': os.getenv('DB_NAME', 'portal_ksmk'),
+            'NAME': os.getenv('DB_NAME', 'portal'),
             'USER': os.getenv('DB_USER', 'sa'),
             'PASSWORD': os.getenv('DB_PASSWORD', ''),
             'HOST': os.getenv('DB_HOST', '127.0.0.1'),
@@ -321,7 +321,7 @@ STORAGES = {
 # Загруженные редакции документов СМК (PDF, DOCX и т.п.).
 # На production каталог должен быть вне web-root nginx: файлы
 # отдаёт только RevisionFileView. Путь задаётся DJANGO_MEDIA_ROOT,
-# например /var/lib/portal-ksmk/media.
+# например /var/lib/portal/media.
 MEDIA_URL = 'media/'
 MEDIA_ROOT = Path(
     os.getenv('DJANGO_MEDIA_ROOT', str(BASE_DIR / 'media')),

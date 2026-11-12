@@ -3,18 +3,18 @@
 # Резервная копия портала СМК: база MS SQL Server и файлы редакций.
 #
 # Пример запуска из cron (каждый день в 2:30):
-#   30 2 * * * /srv/portal-ksmk/deploy/backup.sh \
-#       >> /var/log/portal-ksmk-backup.log 2>&1
+#   30 2 * * * /srv/portal/deploy/backup.sh \
+#       >> /var/log/portal-backup.log 2>&1
 #
 # Переменные DB_* берутся из .env проекта. BACKUP_DIR, RETENTION_DAYS
 # и MSSQL_CONTAINER можно переопределить в окружении cron.
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/srv/portal-ksmk}"
+APP_DIR="${APP_DIR:-/srv/portal}"
 ENV_FILE="${APP_DIR}/.env"
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/portal-ksmk}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/portal}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
-MSSQL_CONTAINER="${MSSQL_CONTAINER:-portal-ksmk-mssql}"
+MSSQL_CONTAINER="${MSSQL_CONTAINER:-portal-mssql}"
 
 read_env() {
     # Читает значение из .env без исполнения файла: секреты могут

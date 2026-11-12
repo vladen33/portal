@@ -1,4 +1,4 @@
-"""Корневая маршрутизация проекта portal-ksmk."""
+"""Корневая маршрутизация проекта portal."""
 
 from django.contrib import admin
 from django.urls import include, path

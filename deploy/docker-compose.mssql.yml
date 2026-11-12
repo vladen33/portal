@@ -11,7 +11,7 @@
 services:
   mssql:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: portal-ksmk-mssql
+    container_name: portal-mssql
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Задайте MSSQL_SA_PASSWORD в .env}"

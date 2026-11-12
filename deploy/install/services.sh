@@ -4,25 +4,25 @@
 # поэтому shellcheck не видит переменные, объявленные в соседях.
 # systemd-служба, cron-бэкап и приёмочные проверки.
 
-SYSTEMD_UNIT="/etc/systemd/system/portal-ksmk.service"
-CRON_FILE="/etc/cron.d/portal-ksmk-backup"
+SYSTEMD_UNIT="/etc/systemd/system/portal.service"
+CRON_FILE="/etc/cron.d/portal-backup"
 
-# Устанавливает и запускает службу portal-ksmk.
+# Устанавливает и запускает службу portal.
 services_install_unit() {
     export T_APP_DIR="$APP_DIR"
     export T_APP_USER="$APP_USER"
 
     render_template \
-        "${DEPLOY_DIR}/templates/portal-ksmk.service.in" \
+        "${DEPLOY_DIR}/templates/portal.service.in" \
         "$SYSTEMD_UNIT"
 
     run systemctl daemon-reload
-    run systemctl enable portal-ksmk
+    run systemctl enable portal
 
-    if systemctl is-active --quiet portal-ksmk; then
-        run systemctl restart portal-ksmk
+    if systemctl is-active --quiet portal; then
+        run systemctl restart portal
     else
-        run systemctl start portal-ksmk
+        run systemctl start portal
     fi
 
     if [ "$DRY_RUN" = "1" ]; then
@@ -31,13 +31,13 @@ services_install_unit() {
 
     local attempt
     for attempt in $(seq 1 30); do
-        if systemctl is-active --quiet portal-ksmk; then
-            log "служба portal-ksmk активна"
+        if systemctl is-active --quiet portal; then
+            log "служба portal активна"
             return 0
         fi
         sleep 1
     done
-    die "portal-ksmk не запустился: journalctl -u portal-ksmk -n 50"
+    die "portal не запустился: journalctl -u portal -n 50"
 }
 
 # Устанавливает запись cron для ежедневного бэкапа.
@@ -90,11 +90,11 @@ acceptance_checks() {
         --resolve "${DOMAIN}:${port}:127.0.0.1" "$url" >/dev/null; then
         log "портал отвечает: ${url}"
     else
-        die "портал не отвечает по ${url}: journalctl -u portal-ksmk -n 50"
+        die "портал не отвечает по ${url}: journalctl -u portal -n 50"
     fi
 
     local service
-    for service in portal-ksmk nginx cron; do
+    for service in portal nginx cron; do
         if systemctl is-active --quiet "$service"; then
             log "служба ${service}: active"
         else

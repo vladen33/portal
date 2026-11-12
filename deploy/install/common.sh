@@ -7,7 +7,7 @@
 
 LOG_FILE="${LOG_FILE:-/dev/null}"
 DRY_RUN="${DRY_RUN:-0}"
-DRY_RUN_DIR="${DRY_RUN_DIR:-/tmp/portal-ksmk-dryrun}"
+DRY_RUN_DIR="${DRY_RUN_DIR:-/tmp/portal-dryrun}"
 LIB_DIR="${LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 RENDER_SCRIPT="$(cd "${LIB_DIR}/.." && pwd)/render.py"
 

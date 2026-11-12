@@ -159,7 +159,7 @@ def main(argv):
     args = parser.parse_args(argv[1:])
 
     load_dotenv(ENV_FILE)
-    database = os.getenv('DB_NAME', 'portal_ksmk')
+    database = os.getenv('DB_NAME', 'portal')
 
     if args.check:
         return 0 if check_connection(database) else 1

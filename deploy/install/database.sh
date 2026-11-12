@@ -4,7 +4,7 @@
 # поэтому shellcheck не видит переменные, объявленные в соседях.
 # Подготовка MS SQL Server: контейнер на сервере или внешний сервер.
 
-MSSQL_CONTAINER="${MSSQL_CONTAINER:-portal-ksmk-mssql}"
+MSSQL_CONTAINER="${MSSQL_CONTAINER:-portal-mssql}"
 
 # Возвращает значение из .env, если оно задано, иначе текущее.
 env_or() {

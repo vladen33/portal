@@ -24,7 +24,7 @@ LIB_DIR="${SCRIPT_DIR}/install"
 DEPLOY_DIR="$SCRIPT_DIR"
 
 # --- Значения по умолчанию -------------------------------------------------
-APP_DIR="/srv/portal-ksmk"
+APP_DIR="/srv/portal"
 APP_USER="portal"
 DOMAIN="portal.example.local"
 
@@ -36,7 +36,7 @@ TLS_DAYS=825
 DB_MODE=""               # docker | external
 DB_HOST="127.0.0.1"
 DB_PORT="1433"
-DB_NAME="portal_ksmk"
+DB_NAME="portal"
 DB_USER="sa"
 DB_PASSWORD=""
 SA_PASSWORD=""
@@ -49,12 +49,12 @@ ADMIN_EMAIL="admin@example.local"
 ADMIN_PASSWORD=""
 NO_ADMIN=0
 
-BACKUP_DIR="/var/backups/portal-ksmk"
+BACKUP_DIR="/var/backups/portal"
 BACKUP_SCHEDULE="30 2 * * *"
 BACKUP_RETENTION=30
 NO_BACKUP_CRON=0
 
-LOG_DIR="/var/log/portal-ksmk"
+LOG_DIR="/var/log/portal"
 SKIP_FIREWALL=0
 FORCE_ENV=0
 YES=0
@@ -77,7 +77,7 @@ usage() {
   --db=external          подключение к MSSQL в локальной сети
 
 Основные параметры:
-  --app-dir=DIR          каталог установки (/srv/portal-ksmk)
+  --app-dir=DIR          каталог установки (/srv/portal)
   --app-user=USER        системный пользователь (portal)
   --domain=NAME          доменное имя портала
 
@@ -208,7 +208,7 @@ source_libs() {
 init_logging() {
     if [ "$CHECK_ONLY" = "1" ] || [ "$DRY_RUN" = "1" ] \
         || [ "$(id -u)" -ne 0 ]; then
-        LOG_FILE="${TMPDIR:-/tmp}/portal-ksmk-install.log"
+        LOG_FILE="${TMPDIR:-/tmp}/portal-install.log"
         : > "$LOG_FILE"
     else
         mkdir -p "$LOG_DIR"
@@ -226,9 +226,9 @@ on_error() {
     printf '\n[ошибка] установка прервана (код %s), строка %s\n' \
         "$code" "${BASH_LINENO[0]}" | tee -a "$LOG_FILE" >&2
     if [ "$DRY_RUN" != "1" ] && [ "$CHECK_ONLY" != "1" ]; then
-        systemctl status --no-pager -l portal-ksmk 2>/dev/null \
+        systemctl status --no-pager -l portal 2>/dev/null \
             | tail -n 20 | tee -a "$LOG_FILE" >&2 || true
-        journalctl -u portal-ksmk -n 30 --no-pager 2>/dev/null \
+        journalctl -u portal -n 30 --no-pager 2>/dev/null \
             | tee -a "$LOG_FILE" >&2 || true
     fi
     printf 'Полный журнал: %s\n' "$LOG_FILE" >&2
@@ -428,7 +428,7 @@ print_summary() {
     log "  Каталог:         ${APP_DIR}"
     log "  Пользователь:    ${APP_USER}"
     log "  База:            ${DB_MODE} ${DB_HOST}:${DB_PORT}/${DB_NAME}"
-    log "  Журнал службы:   journalctl -u portal-ksmk"
+    log "  Журнал службы:   journalctl -u portal"
     log "  Каталог логов:   ${LOG_DIR}"
     log "  Бэкапы:          ${BACKUP_DIR} (${BACKUP_SCHEDULE})"
     if [ "$NO_ADMIN" != "1" ]; then
