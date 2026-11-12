@@ -14,3 +14,9 @@ class CoreConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'core'
     verbose_name = 'Портал'
+
+    def ready(self):
+        """Подключает системные проверки production-настроек."""
+        # Django не импортирует модуль checks автоматически:
+        # регистрация происходит только при явном импорте.
+        from core import checks  # noqa: F401

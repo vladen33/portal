@@ -22,7 +22,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Загружаем переменные из .env. Если файла нет, используются
 # значения из окружения процесса и значения по умолчанию ниже.
-load_dotenv(BASE_DIR / '.env')
+# interpolate=False: python-dotenv не подставляет ${ИМЯ}, иначе пароли
+# с символами $ раскрывались бы иначе, чем в systemd EnvironmentFile.
+load_dotenv(BASE_DIR / '.env', interpolate=False)
 
 
 def env_bool(name, default=False):
@@ -172,6 +174,10 @@ if DB_ENGINE == 'mssql':
             'PASSWORD': os.getenv('DB_PASSWORD', ''),
             'HOST': os.getenv('DB_HOST', '127.0.0.1'),
             'PORT': os.getenv('DB_PORT', '1433'),
+            # Переиспользуем соединение между запросами воркера:
+            # без этого каждый запрос заново проходит проверку
+            # подлинности на сервере MS SQL.
+            'CONN_MAX_AGE': env_int('DB_CONN_MAX_AGE', 60),
             'OPTIONS': {
                 # Драйвер mssql-python идёт вместе с mssql-django 2.0
                 # и несёт собственный ODBC Driver 18, поэтому
@@ -328,6 +334,64 @@ MEDIA_URL = 'media/'
 MEDIA_ROOT = Path(
     os.getenv('DJANGO_MEDIA_ROOT', str(BASE_DIR / 'media')),
 )
+
+# --- Логирование ------------------------------------------------------------
+
+# Каталог журналов. На production установщик создаёт /var/log/portal
+# и передаёт путь через DJANGO_LOG_DIR; локально пишем в ./logs.
+LOG_DIR = Path(os.getenv('DJANGO_LOG_DIR', str(BASE_DIR / 'logs')))
+LOG_LEVEL = os.getenv('DJANGO_LOG_LEVEL', 'INFO').strip().upper()
+
+# Каталог создаём заранее, иначе RotatingFileHandler не откроет файл.
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+LOGGING = {
+    'version': 1,
+    # Не отключаем логгеры Django и сторонних пакетов.
+    'disable_existing_loggers': False,
+    'formatters': {
+        'plain': {
+            'format': '{asctime} {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        # Консоль: в production её собирает journald (journalctl -u portal).
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'plain',
+        },
+        # Файл с ротацией: ошибки можно посмотреть без journalctl.
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'plain',
+            'filename': LOG_DIR / 'django.log',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 5,
+            'encoding': 'utf-8',
+        },
+    },
+    'loggers': {
+        # Ошибки обработки запросов (в том числе 500-е) пишем всегда.
+        'django.request': {
+            'handlers': ['console', 'file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        # Вход на портал и Active Directory: успехи, отказы, JIT-создание.
+        'accounts': {
+            'handlers': ['console', 'file'],
+            'level': LOG_LEVEL,
+            'propagate': False,
+        },
+        # Предупреждения системы безопасности при старте.
+        'django.security': {
+            'handlers': ['console', 'file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}
 
 # --- Прочее -----------------------------------------------------------------
 
