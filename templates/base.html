@@ -4,13 +4,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Портал СМК{% endblock %}</title>
+  <title>{% block title %}Портал{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
 </head>
 <body>
 <header class="site-header">
   <div class="brand">
-    <a href="{% url 'documents:list' %}">Портал СМК</a>
+    <a href="/">Портал</a>
   </div>
   {% if user.is_authenticated %}
   <nav class="site-nav">

@@ -1,5 +1,5 @@
 [Unit]
-Description=portal — портал документов СМК
+Description=portal — внутренний портал организации
 Documentation=file://@APP_DIR@/README.md
 After=network-online.target
 Wants=network-online.target

@@ -1,4 +1,4 @@
-"""Представления портала документов СМК."""
+"""Представления раздела документов СМК."""
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
