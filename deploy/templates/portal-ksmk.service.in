@@ -1,21 +1,19 @@
 [Unit]
 Description=portal-ksmk — портал документов СМК
-Documentation=file:///srv/portal-ksmk/README.md
+Documentation=file://@APP_DIR@/README.md
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=notify
-User=portal
-Group=portal
-WorkingDirectory=/srv/portal-ksmk
-EnvironmentFile=/srv/portal-ksmk/.env
-ExecStart=/srv/portal-ksmk/venv/bin/gunicorn \
+User=@APP_USER@
+Group=@APP_USER@
+WorkingDirectory=@APP_DIR@
+EnvironmentFile=@APP_DIR@/.env
+ExecStart=@APP_DIR@/venv/bin/gunicorn \
     --config deploy/gunicorn.conf.py \
     config.wsgi:application
 ExecReload=/bin/kill -s HUP $MAINPID
-RuntimeDirectory=portal-ksmk
-RuntimeDirectoryMode=0750
 UMask=007
 PrivateTmp=true
 NoNewPrivileges=true

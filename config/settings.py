@@ -176,9 +176,14 @@ if DB_ENGINE == 'mssql':
                 # и несёт собственный ODBC Driver 18, поэтому
                 # msodbcsql18 из репозитория Microsoft не нужен.
                 'python_driver': 'mssql_python',
-                # В Docker-контейнере используется самоподписанный
-                # сертификат, поэтому его проверку отключаем.
-                'extra_params': 'TrustServerCertificate=yes',
+                # Контейнер MSSQL в Docker использует самоподписанный
+                # сертификат (DB_TRUST_CERT=True). Для внешнего сервера
+                # с нормальным сертификатом ставим False.
+                'extra_params': (
+                    'TrustServerCertificate=yes'
+                    if env_bool('DB_TRUST_CERT', default=True)
+                    else 'TrustServerCertificate=no'
+                ),
             },
         },
     }

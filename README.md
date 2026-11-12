@@ -76,65 +76,65 @@ backend при импорте подгружает `pyodbc`.
 редакция» создаётся фильтрованным уникальным индексом
 `WHERE [is_current]=(1)`, поиск по кириллице регистронезависим.
 
-## Production-контур
+## Установка на сервер
 
-Компоненты: gunicorn (systemd) → unix-сокет → nginx (TLS, статика),
-Django с `DEBUG=False`, MS SQL Server в локальной сети.
-
-1. Разместить проект в `/srv/portal-ksmk`, создать пользователя
-   `portal`, установить зависимости в `venv`, заполнить `.env`
-   (образец — `.env.example`, раздел «Production-контур»).
-2. Создать каталоги вне web-root nginx и выдать права пользователю
-   `portal`:
+Установщик `deploy/install.sh` выполняет всё сам: проверяет и ставит
+системные пакеты, создаёт пользователя и каталоги, копирует код,
+готовит venv и `.env`, поднимает MS SQL Server, применяет миграции,
+настраивает systemd, nginx с TLS, ufw и cron-бэкап.
 
 ```bash
-sudo mkdir -p /var/lib/portal-ksmk/media /var/log/portal-ksmk
-sudo chown -R portal:portal /var/lib/portal-ksmk
+# MS SQL Server в контейнере на этом же сервере
+sudo deploy/install.sh --db=docker --domain=portal.example.local
+
+# внешний MS SQL Server в локальной сети
+sudo deploy/install.sh --db=external --db-host=10.0.0.5 \
+    --db-user=portal --create-db --domain=portal.example.local
+
+# проверка окружения и план действий без изменений
+deploy/install.sh --check --db=docker
+deploy/install.sh --dry-run --db=external
 ```
 
-3. Собрать статику и применить миграции от имени пользователя
-   `portal`:
+Что важно знать:
+
+- режимы БД: `--db=docker` (контейнер на сервере, пароль SA
+  запрашивается интерактивно) и `--db=external` (существующий
+  сервер; база по умолчанию не создаётся — добавьте `--create-db`,
+  если у пользователя есть права на DDL);
+- TLS: `--tls=selfsigned` (по умолчанию), `--tls=existing
+  --cert=... --key=...` или `--tls=none --allow-http`
+  (не рекомендуется: пароли идут открытым текстом);
+- пароли по умолчанию запрашиваются интерактивно; флаги
+  `--db-password`, `--sa-password`, `--admin-password` нужны только
+  для автоматизации;
+- повторный запуск идемпотентен: существующий `.env` не меняется
+  (перезапись — `--force-env`), миграции и группы не дублируются;
+- полная справка: `deploy/install.sh --help`.
+
+Компоненты контура: gunicorn под systemd слушает `127.0.0.1:8000`,
+nginx проксирует на него по TLS, статику отдаёт сам, файлы редакций
+проксирует без буферизации. Бэкапы настраиваются cron-записью на
+`deploy/backup.sh` (по умолчанию ежедневно в 2:30, хранение 30 дней).
+
+Проверка после установки:
 
 ```bash
-cd /srv/portal-ksmk
-venv/bin/python manage.py collectstatic --noinput
-venv/bin/python manage.py migrate
-venv/bin/python manage.py setup_portal_roles
-venv/bin/python manage.py check --deploy
+systemctl status portal-ksmk nginx
+journalctl -u portal-ksmk -n 50
+cd /srv/portal-ksmk && venv/bin/python manage.py check --deploy
 ```
 
 `check --deploy` не покажет предупреждений, если в `.env` включены
-`DJANGO_SECURE_SSL_REDIRECT`, `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS`
-и `DJANGO_SECURE_HSTS_PRELOAD`. Две последние опции включайте только
-тогда, когда все поддомены домена тоже обслуживаются по HTTPS.
-
-4. Установить unit и конфиг nginx:
-
-```bash
-sudo cp deploy/portal-ksmk.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now portal-ksmk
-
-sudo cp deploy/nginx-portal-ksmk.conf \
-    /etc/nginx/sites-available/portal-ksmk.conf
-sudo ln -s /etc/nginx/sites-available/portal-ksmk.conf \
-    /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-5. Бэкапы: `deploy/backup.sh` делает `BACKUP DATABASE` через
-   `sqlcmd` в контейнере/на сервере MSSQL, архивирует `MEDIA_ROOT`
-   и удаляет копии старше `RETENTION_DAYS` (30 по умолчанию).
-   Пример записи в cron:
-
-```
-30 2 * * * /srv/portal-ksmk/deploy/backup.sh >> /var/log/portal-ksmk-backup.log 2>&1
-```
+`DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS` и `DJANGO_SECURE_HSTS_PRELOAD`
+(только когда все поддомены домена тоже работают по HTTPS).
 
 Файлы редакций в nginx отдельной локацией не раздаются: их отдаёт
 `RevisionFileView` после проверки входа. Локация
 `/documents/.../file/` проксируется с выключенной буферизацией,
 чтобы большие файлы шли потоком.
+
+## Вход через Active Directory
 
 На портале две категории пользователей:
 

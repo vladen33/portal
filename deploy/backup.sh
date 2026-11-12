@@ -41,9 +41,12 @@ mkdir -p "${BACKUP_DIR}"
 # --- База данных ----------------------------------------------------------
 DB_FILE="/var/opt/mssql/backup/${DB_NAME}-${STAMP}.bak"
 docker exec "${MSSQL_CONTAINER}" mkdir -p /var/opt/mssql/backup
-docker exec "${MSSQL_CONTAINER}" \
+# Пароль передаём переменной окружения SQLCMDPASSWORD: он не виден
+# в списке процессов хоста и не попадает в лог cron.
+SQLCMDPASSWORD="${DB_PASSWORD}" docker exec -i \
+    -e SQLCMDPASSWORD "${MSSQL_CONTAINER}" \
     /opt/mssql-tools18/bin/sqlcmd \
-    -S localhost -U "${DB_USER}" -P "${DB_PASSWORD}" -C \
+    -S localhost -U "${DB_USER}" -C \
     -Q "BACKUP DATABASE [${DB_NAME}] TO DISK = N'${DB_FILE}' WITH INIT, CHECKSUM"
 docker cp "${MSSQL_CONTAINER}:${DB_FILE}" \
     "${BACKUP_DIR}/${DB_NAME}-${STAMP}.bak"

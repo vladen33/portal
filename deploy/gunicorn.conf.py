@@ -11,8 +11,10 @@ Gunicorn слушает unix-сокет: наружу порт не публик
 import multiprocessing
 import os
 
-# Сокет создаётся в /run (systemd RuntimeDirectory).
-bind = os.getenv('GUNICORN_BIND', 'unix:/run/portal-ksmk/gunicorn.sock')
+# Слушаем только localhost: запросы приходят от nginx.
+# TCP-сокет выбран вместо unix-сокета, чтобы не выдавать
+# пользователю nginx доступ к каталогам приложения.
+bind = os.getenv('GUNICORN_BIND', '127.0.0.1:8000')
 
 # Два воркера на ядро плюс один — стандартная эвристика для
 # приложения, которое ждёт базу данных.

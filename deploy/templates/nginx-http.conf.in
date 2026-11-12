@@ -1,0 +1,42 @@
+# Сайт портала СМК без TLS. Файл создан deploy/install.sh.
+#
+# ВНИМАНИЕ: пароли портала и доменных учётных записей передаются
+# по сети открытым текстом. Используйте только в изолированном
+# сегменте и как можно быстрее переходите на TLS.
+
+upstream portal_ksmk {
+    server 127.0.0.1:8000 fail_timeout=0;
+}
+
+server {
+    listen 80;
+    server_name @DOMAIN@;
+
+    client_max_body_size 50m;
+
+    location /static/ {
+        alias @APP_DIR@/staticfiles/;
+        expires 30d;
+        access_log off;
+    }
+
+    location ~ ^/documents/.*/file/$ {
+        proxy_pass http://portal_ksmk;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_read_timeout 300s;
+    }
+
+    location / {
+        proxy_pass http://portal_ksmk;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
+        proxy_read_timeout 60s;
+    }
+}

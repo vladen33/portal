@@ -1,18 +1,16 @@
-# nginx для портала СМК: TLS, статика и прокси на gunicorn.
+# Сайт портала СМК с TLS. Файл создан deploy/install.sh.
 #
 # Файлы редакций (MEDIA_ROOT) намеренно НЕ раздаются как статика:
 # их отдаёт Django после проверки входа (RevisionFileView).
-# Каталог media должен лежать вне web-root nginx.
 
 upstream portal_ksmk {
-    server unix:/run/portal-ksmk/gunicorn.sock fail_timeout=0;
+    server 127.0.0.1:8000 fail_timeout=0;
 }
 
 server {
     listen 80;
-    server_name portal.example.local;
+    server_name @DOMAIN@;
 
-    # Заглушка для продления сертификата Let's Encrypt.
     location /.well-known/acme-challenge/ {
         root /var/www/letsencrypt;
     }
@@ -25,10 +23,10 @@ server {
 server {
     listen 443 ssl;
     http2 on;
-    server_name portal.example.local;
+    server_name @DOMAIN@;
 
-    ssl_certificate     /etc/ssl/certs/portal.example.local.pem;
-    ssl_certificate_key /etc/ssl/private/portal.example.local.key;
+    ssl_certificate     @CERT@;
+    ssl_certificate_key @KEY@;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
     ssl_session_cache shared:SSL:10m;
@@ -38,13 +36,12 @@ server {
 
     # Статику собирает collectstatic, nginx отдаёт её напрямую.
     location /static/ {
-        alias /srv/portal-ksmk/staticfiles/;
+        alias @APP_DIR@/staticfiles/;
         expires 30d;
         access_log off;
     }
 
-    # Файлы редакций: отдаёт Django, буферизация выключена,
-    # чтобы большие файлы шли потоком и фиксировался просмотр.
+    # Файлы редакций: отдаёт Django, без буферизации.
     location ~ ^/documents/.*/file/$ {
         proxy_pass http://portal_ksmk;
         proxy_set_header Host $host;
