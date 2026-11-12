@@ -80,59 +80,74 @@ backend при импорте подгружает `pyodbc`.
 Установщик `deploy/install.sh` выполняет всё сам: проверяет и ставит
 системные пакеты, создаёт пользователя и каталоги, копирует код,
 готовит venv и `.env`, поднимает MS SQL Server, применяет миграции,
-настраивает systemd, nginx с TLS, ufw и cron-бэкап.
+настраивает systemd, nginx с TLS, ufw и cron-бэкап. Пошаговая
+инструкция для первого выката — `docs/DEPLOY.md`.
+
+Целевая площадка: Ubuntu 26.04 LTS (python3 3.14 и пакет `libodbc2`,
+нужный драйверу MS SQL), одна ВМ в локальной сети, MS SQL Server
+Express в Docker на этой же машине. Доступ из интернета
+не предполагается.
 
 ```bash
-# MS SQL Server в контейнере на этом же сервере
+# клон тега в отдельный каталог: установщик сам скопирует код
+# в /srv/portal и выставит владельца
+sudo git clone --branch v0.1.0 --depth 1 <repo-url> /opt/portal-release
+cd /opt/portal-release
+
+# проверки без изменений
+sudo deploy/install.sh --check --db=docker --domain=portal.example.local
+sudo deploy/install.sh --dry-run --db=docker --domain=portal.example.local
+
+# установка: TLS с самоподписанным сертификатом, MSSQL Express в Docker
 sudo deploy/install.sh --db=docker --domain=portal.example.local
-
-# внешний MS SQL Server в локальной сети
-sudo deploy/install.sh --db=external --db-host=10.0.0.5 \
-    --db-user=portal --create-db --domain=portal.example.local
-
-# проверка окружения и план действий без изменений
-deploy/install.sh --check --db=docker
-deploy/install.sh --dry-run --db=external
 ```
 
 Что важно знать:
 
-- режимы БД: `--db=docker` (контейнер на сервере, пароль SA
-  запрашивается интерактивно) и `--db=external` (существующий
-  сервер; база по умолчанию не создаётся — добавьте `--create-db`,
-  если у пользователя есть права на DDL);
-- TLS: `--tls=selfsigned` (по умолчанию), `--tls=existing
-  --cert=... --key=...` или `--tls=none --allow-http`
+- режимы БД: `--db=docker` (контейнер MS SQL Express на сервере) и
+  `--db=external` (существующий сервер в сети; база по умолчанию
+  не создаётся — добавьте `--create-db`);
+- приложение работает под отдельным SQL-логином `portal` с правами
+  только на свою базу; пароль генерируется автоматически и пишется
+  в `.env`. `sa` нужен только контейнеру и административным задачам;
+- TLS: `--tls=selfsigned` (по умолчанию, сертификат создаётся с SAN),
+  `--tls=existing --cert=... --key=...` или `--tls=none --allow-http`
   (не рекомендуется: пароли идут открытым текстом);
-- пароли по умолчанию запрашиваются интерактивно; флаги
-  `--db-password`, `--sa-password`, `--admin-password` нужны только
-  для автоматизации;
-- повторный запуск идемпотентен: существующий `.env` не меняется
-  (перезапись — `--force-env`), миграции и группы не дублируются;
+- HSTS на первом этапе выключен (`DJANGO_SECURE_HSTS_SECONDS=0`):
+  с самоподписанным сертификатом браузер иначе не даст обойти
+  предупреждение. Включать после перехода на сертификат
+  корпоративного УЦ;
+- бэкапы складываются локально в `/var/backups/portal` (база, `.env`,
+  `MEDIA_ROOT`). Раз в неделю каталог нужно копировать на другой
+  хост — это принятый риск; восстановление описано в
+  `docs/RESTORE.md`;
+- повторный запуск установщика идемпотентен: существующий `.env`
+  не меняется (перезапись — `--force-env`);
 - полная справка: `deploy/install.sh --help`.
 
+Обновление установленного портала — `deploy/update.sh` из каталога
+новой версии: бэкап, остановка службы, миграции, проверки, запуск
+и проверка `/healthz/`.
+
 Компоненты контура: gunicorn под systemd слушает `127.0.0.1:8000`,
-nginx проксирует на него по TLS и отдаёт статику. Файлы из
-`MEDIA_ROOT` раздаются только Django после проверки прав доступа,
-поэтому каталог размещается вне web-root nginx. Бэкапы настраиваются
-cron-записью на `deploy/backup.sh` (по умолчанию ежедневно в 2:30,
-хранение 30 дней).
+nginx проксирует на него по TLS и отдаёт статику; вход на портал
+и в админку ограничен по частоте (`limit_req`). Файлы из
+`MEDIA_ROOT` раздаются только вьюхами приложений после проверки
+прав, поэтому каталог размещается вне web-root nginx.
 
 Проверка после установки:
 
 ```bash
-systemctl status portal nginx
+systemctl status portal nginx docker
 journalctl -u portal -n 50
+curl -k https://portal.example.local/healthz/
 cd /srv/portal && venv/bin/python manage.py check --deploy
 ```
 
-`check --deploy` не покажет предупреждений, если в `.env` включены
-`DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS` и `DJANGO_SECURE_HSTS_PRELOAD`
-(только когда все поддомены домена тоже работают по HTTPS).
-
-Файлы из `MEDIA_ROOT` в nginx отдельной локацией не раздаются:
-каталог размещается вне web-root, а доступ к файлам отдают вьюхи
-приложений после проверки прав.
+При выключенном HSTS `check --deploy` показывает только W004 —
+это ожидаемо до перехода на сертификат корпоративного УЦ (W005/W021
+появятся, когда HSTS включат, но поддомены и preload не настроят).
+Ошибок уровня `ERROR` быть не должно.
 
 ## Вход через Active Directory
 
