@@ -3,6 +3,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.views.generic import DetailView, ListView, View
 
@@ -54,11 +55,7 @@ class DocumentListView(LoginRequiredMixin, ListView):
 
 
 class DocumentDetailView(LoginRequiredMixin, DetailView):
-    """Карточка документа: сведения, редакции, статус ознакомления.
-
-    Если в запросе есть параметр ``?view=<id редакции>``, фиксируем
-    просмотр и перенаправляем пользователя на файл редакции.
-    """
+    """Карточка документа: сведения, редакции, статус ознакомления."""
 
     model = Document
     template_name = 'documents/document_detail.html'
@@ -69,30 +66,6 @@ class DocumentDetailView(LoginRequiredMixin, DetailView):
         return Document.objects.filter(
             status=Document.Status.ACTIVE
         ).prefetch_related('revisions')
-
-    def get(self, request, *args, **kwargs):
-        """Отдаёт карточку документа или файл выбранной редакции."""
-        self.object = self.get_object()
-
-        revision_id = request.GET.get('view')
-        if revision_id:
-            revision = get_object_or_404(
-                Revision,
-                pk=revision_id,
-                document=self.object,
-            )
-            # При первом открытии создаём запись ознакомления
-            # и отмечаем факт просмотра.
-            acknowledgement, _ = Acknowledgement.objects.get_or_create(
-                user=request.user,
-                revision=revision,
-            )
-            acknowledgement.mark_viewed()
-            if revision.file:
-                return redirect(revision.file.url)
-
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
 
     def get_context_data(self, **kwargs):
         """Добавляет редакции и статус ознакомления текущего пользователя."""
@@ -139,3 +112,39 @@ class AcknowledgeView(LoginRequiredMixin, View):
             'Ознакомление с редакцией зафиксировано.',
         )
         return redirect('documents:detail', pk=document.pk)
+
+
+class RevisionFileView(LoginRequiredMixin, View):
+    """Отдаёт файл редакции только авторизованному пользователю.
+
+    Файлы документов СМК не раздаются как статика: обращение идёт
+    через эту вьюху, поэтому Django проверяет вход и фиксирует факт
+    просмотра. При переходе на nginx с ``X-Accel-Redirect`` меняется
+    только способ отдачи байтов в конце метода.
+    """
+
+    def get(self, request, pk, revision_pk):
+        """Возвращает файл редакции и отмечает просмотр."""
+        revision = get_object_or_404(
+            Revision,
+            pk=revision_pk,
+            document__pk=pk,
+            document__status=Document.Status.ACTIVE,
+        )
+        if not revision.file:
+            raise Http404('У этой редакции нет файла.')
+
+        # Первое открытие файла создаёт запись ознакомления.
+        acknowledgement, _ = Acknowledgement.objects.get_or_create(
+            user=request.user,
+            revision=revision,
+        )
+        acknowledgement.mark_viewed()
+
+        # В пути upload_to есть каталоги, оставляем только имя файла.
+        file_name = revision.file.name.rsplit('/', 1)[-1]
+        return FileResponse(
+            revision.file.open('rb'),
+            as_attachment=False,
+            filename=file_name,
+        )

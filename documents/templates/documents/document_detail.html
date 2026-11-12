@@ -40,7 +40,8 @@
     <td>{{ revision.change_note|default:"—" }}</td>
     <td>
       {% if revision.file %}
-      <a href="{% url 'documents:detail' document.pk %}?view={{ revision.pk }}">
+      <a href="{% url 'documents:file' document.pk revision.pk %}"
+         target="_blank" rel="noopener">
         Открыть файл
       </a>
       {% else %}

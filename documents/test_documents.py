@@ -97,36 +97,90 @@ def test_database_forbids_two_current_revisions(document):
             )
 
 
-def test_view_marks_revision_viewed(
+def _revision_with_file(document, settings, tmp_path):
+    """Создаёт действующую редакцию с файлом во временном MEDIA_ROOT."""
+    settings.MEDIA_ROOT = tmp_path
+    return Revision.objects.create(
+        document=document,
+        number=2,
+        is_current=True,
+        file=SimpleUploadedFile('doc.pdf', b'%PDF-1.4 test'),
+    )
+
+
+def test_file_requires_login(client, document, settings, tmp_path):
+    """Файл редакции недоступен без входа в систему."""
+    revision = _revision_with_file(document, settings, tmp_path)
+    response = client.get(
+        reverse('documents:file', args=[document.pk, revision.pk])
+    )
+    assert response.status_code == 302
+    assert reverse('accounts:login') in response.url
+
+
+def test_file_marks_viewed_and_returns_content(
     client,
     user,
     document,
     settings,
     tmp_path,
 ):
-    """Открытие файла редакции фиксирует просмотр и ведёт к файлу."""
-    # Файлы тестов пишем во временный каталог, а не в media/ проекта.
-    settings.MEDIA_ROOT = tmp_path
-    revision = Revision.objects.create(
-        document=document,
-        number=2,
-        is_current=True,
-        file=SimpleUploadedFile('doc.pdf', b'%PDF-1.4 test'),
-    )
+    """Авторизованный пользователь получает файл, просмотр фиксируется."""
+    revision = _revision_with_file(document, settings, tmp_path)
     client.force_login(user)
 
     response = client.get(
-        reverse('documents:detail', args=[document.pk]),
-        {'view': revision.pk},
+        reverse('documents:file', args=[document.pk, revision.pk])
     )
 
-    assert response.status_code == 302
-    assert response.url == revision.file.url
+    assert response.status_code == 200
+    assert response['Content-Type'] == 'application/pdf'
+    body = b''.join(response.streaming_content)
+    assert b'%PDF-1.4 test' in body
+
     acknowledgement = Acknowledgement.objects.get(
         user=user,
         revision=revision,
     )
     assert acknowledgement.viewed_at is not None
+
+
+def test_file_of_another_document_returns_404(
+    client,
+    user,
+    document,
+    settings,
+    tmp_path,
+):
+    """Чужой документ в URL не даёт доступа к файлу редакции."""
+    revision = _revision_with_file(document, settings, tmp_path)
+    other_document = Document.objects.create(
+        code='СТО-03-2026',
+        title='Другой документ',
+        status=Document.Status.ACTIVE,
+    )
+    client.force_login(user)
+
+    response = client.get(
+        reverse(
+            'documents:file',
+            args=[other_document.pk, revision.pk],
+        )
+    )
+
+    assert response.status_code == 404
+
+
+def test_file_without_attachment_returns_404(client, user, document):
+    """Если у редакции нет файла, вьюха отвечает 404."""
+    revision = Revision.objects.create(document=document, number=3)
+    client.force_login(user)
+
+    response = client.get(
+        reverse('documents:file', args=[document.pk, revision.pk])
+    )
+
+    assert response.status_code == 404
 
 
 def test_acknowledge_creates_single_record(client, user, document):
