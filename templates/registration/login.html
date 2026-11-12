@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Вход на портал СМК{% endblock %}
+
+{% block content %}
+<h1>Вход на портал</h1>
+
+{% if form.non_field_errors %}
+<ul class="form-errors">
+  {% for error in form.non_field_errors %}
+  <li>{{ error }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<form method="post" class="login-form" novalidate>
+  {% csrf_token %}
+
+  <fieldset class="auth-source">
+    <legend>Способ входа</legend>
+    {% for radio in form.auth_source %}
+    <label class="radio-row">
+      {{ radio.tag }}
+      <span>{{ radio.choice_label }}</span>
+      {% if radio.data.value == 'ad' %}
+      <span class="hint">будет доступно позже</span>
+      {% endif %}
+    </label>
+    {% endfor %}
+  </fieldset>
+
+  <p class="field">
+    <label for="{{ form.username.id_for_label }}">Логин</label>
+    {{ form.username }}
+    {{ form.username.errors }}
+  </p>
+  <p class="field">
+    <label for="{{ form.password.id_for_label }}">Пароль</label>
+    {{ form.password }}
+    {{ form.password.errors }}
+  </p>
+
+  <button type="submit">Войти</button>
+</form>
+{% endblock %}

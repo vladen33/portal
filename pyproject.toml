@@ -1,0 +1,44 @@
+# Конфигурация инструментов разработки (ruff, pytest).
+# Зависимости проекта описаны в requirements.txt и requirements-dev.txt.
+
+[tool.ruff]
+# Ограничение длины строки задано правилами проекта.
+line-length = 80
+# Целевая версия Python: локально используется Python 3.14.
+target-version = "py314"
+# Каталоги, которые линтер и форматтер не проверяют.
+# Миграции генерирует Django, их стиль не контролируем.
+extend-exclude = [
+    "venv",
+    "media",
+    "staticfiles",
+    "deploy",
+    "**/migrations",
+]
+
+[tool.ruff.lint]
+# E  — стиль PEP 8 (включая E501 — длина строки);
+# F  — pyflakes (неиспользуемые импорты, неопределённые имена);
+# W  — предупреждения PEP 8;
+# I  — сортировка импортов (isort);
+# DJ — правила flake8-django.
+select = ["E", "F", "W", "I", "DJ"]
+
+[tool.ruff.lint.isort]
+# Локальные приложения проекта, чтобы ruff не считал их сторонними.
+known-first-party = ["accounts", "documents", "config"]
+
+[tool.ruff.format]
+# Форматтер ruff; одинарные кавычки — стиль Django-сообщества.
+quote-style = "single"
+
+[tool.pytest.ini_options]
+# Настройки Django берутся из config/settings.py.
+DJANGO_SETTINGS_MODULE = "config.settings"
+# Файлы, в которых pytest ищет тесты.
+python_files = ["test_*.py", "*_test.py"]
+# По умолчанию тесты идут параллельно на всех доступных ядрах.
+# Последовательный запуск одного теста — только явно: pytest -n0 <тест>.
+addopts = "-n auto -q --strict-markers"
+# Каталоги, в которых ищем тесты.
+testpaths = ["accounts", "documents"]

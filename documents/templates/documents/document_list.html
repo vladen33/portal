@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Документы СМК{% endblock %}
+
+{% block content %}
+<h1>Действующие документы</h1>
+
+<form method="get" class="filters">
+  <input type="search" name="q" value="{{ current_query }}"
+         placeholder="Шифр или название">
+  <select name="doc_type">
+    <option value="">Все типы</option>
+    {% for value, label in doc_types %}
+    <option value="{{ value }}"
+      {% if value == current_doc_type %}selected{% endif %}>
+      {{ label }}
+    </option>
+    {% endfor %}
+  </select>
+  <button type="submit">Найти</button>
+</form>
+
+{% if documents %}
+<table class="doc-table">
+  <thead>
+  <tr>
+    <th>Шифр</th>
+    <th>Название</th>
+    <th>Тип</th>
+    <th>Редакция</th>
+  </tr>
+  </thead>
+  <tbody>
+  {% for document in documents %}
+  <tr>
+    <td>
+      <a href="{% url 'documents:detail' document.pk %}">
+        {{ document.code }}
+      </a>
+    </td>
+    <td>
+      <a href="{% url 'documents:detail' document.pk %}">
+        {{ document.title }}
+      </a>
+    </td>
+    <td>{{ document.get_doc_type_display }}</td>
+    <td>
+      {% if document.current_revision %}
+      {{ document.current_revision.number }}
+      {% else %}
+      &mdash;
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Документы не найдены.</p>
+{% endif %}
+
+{% if is_paginated %}
+<nav class="pagination">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}&q={{ current_query }}&doc_type={{ current_doc_type }}">
+    Назад
+  </a>
+  {% endif %}
+  <span>
+    Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+  </span>
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}&q={{ current_query }}&doc_type={{ current_doc_type }}">
+    Вперёд
+  </a>
+  {% endif %}
+</nav>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,42 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Портал СМК{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+</head>
+<body>
+<header class="site-header">
+  <div class="brand">
+    <a href="{% url 'documents:list' %}">Портал СМК</a>
+  </div>
+  {% if user.is_authenticated %}
+  <nav class="site-nav">
+    <a href="{% url 'documents:list' %}">Документы</a>
+    {% if user.is_staff %}
+    <a href="{% url 'admin:index' %}">Администрирование</a>
+    {% endif %}
+  </nav>
+  <div class="user-box">
+    <span class="user-name">{{ user }}</span>
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <button type="submit" class="link-button">Выйти</button>
+    </form>
+  </div>
+  {% endif %}
+</header>
+<main class="content">
+  {% if messages %}
+  <ul class="messages">
+    {% for message in messages %}
+    <li class="message message-{{ message.tags }}">{{ message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>
