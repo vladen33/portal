@@ -48,6 +48,8 @@ venv/bin/python manage.py runserver 0.0.0.0:8000
 
 ```bash
 sudo apt install -y docker.io docker-compose-v2
+# Backend mssql-django импортирует pyodbc, которому нужна unixODBC.
+sudo apt install -y libodbc2
 sudo usermod -aG docker "$USER"        # потребуется перелогин
 
 # в .env: MSSQL_SA_PASSWORD, DB_ENGINE=mssql, DB_USER=sa,
@@ -61,6 +63,18 @@ venv/bin/python -m pytest -n auto
 Контейнер слушает только `127.0.0.1`, данные лежат в volume
 `mssql-data`. Если контейнер запускается впервые, дождитесь
 статуса `healthy` (примерно 30–60 секунд).
+
+Соединение идёт через драйвер `mssql-python`
+(`OPTIONS['python_driver'] = 'mssql_python'`): он входит в
+`mssql-django` 2.0 и содержит собственный ODBC Driver 18, поэтому
+`msodbcsql18` из репозитория Microsoft устанавливать не нужно.
+Системная библиотека `libodbc2` требуется только потому, что
+backend при импорте подгружает `pyodbc`.
+
+Проверено на MS SQL Server 2022 в Docker: миграции применяются,
+29 тестов проходят (`-n auto`), ограничение «одна действующая
+редакция» создаётся фильтрованным уникальным индексом
+`WHERE [is_current]=(1)`, поиск по кириллице регистронезависим.
 
 ## Вход через Active Directory
 

@@ -122,6 +122,10 @@ if DB_ENGINE == 'mssql':
             'HOST': os.getenv('DB_HOST', '127.0.0.1'),
             'PORT': os.getenv('DB_PORT', '1433'),
             'OPTIONS': {
+                # Драйвер mssql-python идёт вместе с mssql-django 2.0
+                # и несёт собственный ODBC Driver 18, поэтому
+                # msodbcsql18 из репозитория Microsoft не нужен.
+                'python_driver': 'mssql_python',
                 # В Docker-контейнере используется самоподписанный
                 # сертификат, поэтому его проверку отключаем.
                 'extra_params': 'TrustServerCertificate=yes',
