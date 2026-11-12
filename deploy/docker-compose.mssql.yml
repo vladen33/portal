@@ -15,12 +15,18 @@ services:
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Задайте MSSQL_SA_PASSWORD в .env}"
-      MSSQL_PID: "Developer"
+      # Express — бесплатная редакция, допустимая в production.
+      # Developer (было раньше) лицензией для production запрещена.
+      # Лимиты Express: 10 ГБ на базу, 1 ГБ RAM, 4 ядра.
+      MSSQL_PID: "Express"
+      MSSQL_MEMORY_LIMIT_MB: "1024"
     ports:
       # Порт открыт только на localhost: база не видна в сети.
       # MSSQL_HOST_PORT позволяет занять другой порт, если 1433
       # уже используется (например, другим сервисом).
       - "127.0.0.1:${MSSQL_HOST_PORT:-1433}:1433"
+    # Контейнеру достаточно памяти Express-редакции.
+    mem_limit: 2g
     volumes:
       - mssql-data:/var/opt/mssql
     restart: unless-stopped

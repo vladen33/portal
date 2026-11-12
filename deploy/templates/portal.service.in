@@ -3,6 +3,9 @@ Description=portal — внутренний портал организации
 Documentation=file://@APP_DIR@/README.md
 After=network-online.target
 Wants=network-online.target
+# Не перезапускаться бесконечно при падении на старте.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=notify
@@ -15,6 +18,17 @@ ExecStart=@APP_DIR@/venv/bin/gunicorn \
     config.wsgi:application
 ExecReload=/bin/kill -s HUP $MAINPID
 UMask=007
+# --- Ограничение прав процесса ---------------------------------------------
+# Приложению нужен только свой каталог данных; остальная ФС — read-only.
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/portal @LOG_DIR@
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LimitNOFILE=4096
+Environment=PYTHONUNBUFFERED=1
 PrivateTmp=true
 NoNewPrivileges=true
 Restart=on-failure

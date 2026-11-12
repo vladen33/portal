@@ -18,9 +18,12 @@ webserver_prepare_tls() {
                 return 0
             fi
             log "генерируем самоподписанный сертификат для ${DOMAIN}"
+            # SAN обязателен: современные браузеры игнорируют CN
+            # и не примут сертификат без subjectAltName.
             run openssl req -x509 -nodes -newkey rsa:4096 \
                 -days "$TLS_DAYS" \
                 -subj "/CN=${DOMAIN}" \
+                -addext "subjectAltName=DNS:${DOMAIN}" \
                 -keyout "$KEY" -out "$CERT"
             run chmod 600 "$KEY"
             run chmod 644 "$CERT"

@@ -7,9 +7,14 @@ upstream portal {
     server 127.0.0.1:8000 fail_timeout=0;
 }
 
+# Ограничение частоты попыток входа: защита от подбора пароля.
+# Зона объявляется в http-контексте, куда nginx включает этот файл.
+limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
+
 server {
     listen 80;
     server_name @DOMAIN@;
+    server_tokens off;
 
     location /.well-known/acme-challenge/ {
         root /var/www/letsencrypt;
@@ -24,6 +29,9 @@ server {
     listen 443 ssl;
     http2 on;
     server_name @DOMAIN@;
+    server_tokens off;
+    # Превышение лимита попыток входа — «слишком много запросов».
+    limit_req_status 429;
 
     ssl_certificate     @CERT@;
     ssl_certificate_key @KEY@;
@@ -38,6 +46,34 @@ server {
     location /static/ {
         alias @APP_DIR@/staticfiles/;
         expires 30d;
+        access_log off;
+        # WhiteNoise кладёт рядом сжатые .gz — отдаём их без сжатия на лету.
+        gzip_static on;
+    }
+
+    # Вход на портал и в админку: не больше 5 попыток в минуту с адреса.
+    location = /accounts/login/ {
+        limit_req zone=login burst=5 nodelay;
+        proxy_pass http://portal;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /admin/login/ {
+        limit_req zone=login burst=5 nodelay;
+        proxy_pass http://portal;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Проверка живости для мониторинга: в access_log не пишем.
+    location = /healthz/ {
+        proxy_pass http://portal;
+        proxy_set_header Host $host;
         access_log off;
     }
 

@@ -78,6 +78,13 @@ db_create_in_container() {
     run_in_app "$APP_USER" venv/bin/python deploy/db_create.py --create
 }
 
+# Создаёт отдельный SQL-логин приложения (портал не работает под sa).
+db_ensure_login() {
+    log "настройка SQL-логина приложения ${DB_USER}"
+    run_in_app "$APP_USER" venv/bin/python \
+        deploy/db_create.py --ensure-login
+}
+
 # Ждёт, пока внешний сервер начнёт принимать TCP-соединения.
 db_wait_tcp() {
     log "проверка доступности ${DB_HOST}:${DB_PORT}"
@@ -116,6 +123,7 @@ db_prepare() {
     if [ "$DB_MODE" = "docker" ]; then
         db_start_docker
         db_create_in_container
+        db_ensure_login
     else
         db_wait_tcp
         if [ "$CREATE_DB" = "1" ]; then

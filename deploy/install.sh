@@ -89,7 +89,7 @@ TLS:
 
 MS SQL Server:
   --db-host=HOST --db-port=PORT --db-name=NAME --db-user=USER
-  --db-password=PASS     пароль (иначе интерактивный запрос)
+  --db-password=PASS     пароль логина приложения (иначе генерируется)
   --sa-password=PASS     пароль SA контейнера (иначе запрос)
   --mssql-host-port=PORT порт контейнера на localhost (1433)
   --db-trust-cert        не проверять сертификат внешнего MSSQL
@@ -343,7 +343,10 @@ compute_settings() {
         USE_PROXY_TLS="True"
         SSL_REDIRECT="True"
         COOKIE_SECURE="True"
-        HSTS_SECONDS="31536000"
+        # HSTS выключен: с самоподписанным сертификатом браузер не даёт
+        # обойти предупреждение, и сотрудники не смогут войти. Включать
+        # (31536000) после перехода на сертификат корпоративного УЦ.
+        HSTS_SECONDS="0"
         CSRF_ORIGINS="https://${DOMAIN}"
     fi
     ALLOWED_HOSTS="${DOMAIN},127.0.0.1,localhost"
@@ -370,23 +373,43 @@ valid_sa_password() {
     [[ "$value" =~ [^A-Za-z0-9] ]] || return 1
 }
 
+# Генерирует пароль приложения, проходящий политику SQL Server:
+# заглавная буква, строчные, цифры и спецсимвол.
+generate_db_password() {
+    printf 'Pt!%s' "$(openssl rand -hex 16)"
+}
+
 # Запрашивает недостающие пароли.
 resolve_passwords() {
     if [ "$DB_MODE" = "docker" ]; then
-        DB_USER="sa"
+        # Пароль SA нужен контейнеру и административным операциям:
+        # созданию базы и SQL-логина приложения.
+        if [ -z "$SA_PASSWORD" ] && [ "$DB_USER" = "sa" ]; then
+            SA_PASSWORD="$DB_PASSWORD"
+        fi
+        if [ -z "$SA_PASSWORD" ] && [ "$DRY_RUN" != "1" ]; then
+            SA_PASSWORD="$(ask_password 'Пароль SA контейнера MSSQL')"
+        fi
+        if [ -z "$SA_PASSWORD" ] && [ "$DRY_RUN" = "1" ]; then
+            SA_PASSWORD="dry-run-sa-password"
+        fi
+        if [ "$DRY_RUN" != "1" ] \
+            && ! valid_sa_password "$SA_PASSWORD"; then
+            die "пароль SA: минимум 8 символов, заглавные, строчные, цифры и спецсимвол"
+        fi
+
+        # Портал не работает под sa: у приложения свой логин с правами
+        # только на его базу.
+        if [ -z "$DB_USER" ] || [ "$DB_USER" = "sa" ]; then
+            DB_USER="portal"
+        fi
         if [ -z "$DB_PASSWORD" ]; then
-            DB_PASSWORD="$SA_PASSWORD"
-        fi
-        if [ -z "$DB_PASSWORD" ] && [ "$DRY_RUN" != "1" ]; then
-            DB_PASSWORD="$(ask_password 'Пароль SA контейнера MSSQL')"
-        fi
-        SA_PASSWORD="$DB_PASSWORD"
-        if [ -z "$DB_PASSWORD" ] && [ "$DRY_RUN" != "1" ]; then
-            die "не задан пароль SA"
+            DB_PASSWORD="$(generate_db_password)"
+            log "сгенерирован пароль SQL-логина ${DB_USER}"
         fi
         if [ "$DRY_RUN" != "1" ] \
             && ! valid_sa_password "$DB_PASSWORD"; then
-            die "пароль SA: минимум 8 символов, заглавные, строчные, цифры и спецсимвол"
+            die "пароль ${DB_USER}: минимум 8 символов, заглавные, строчные, цифры и спецсимвол"
         fi
         return 0
     fi
@@ -428,6 +451,7 @@ print_summary() {
     log "  Каталог:         ${APP_DIR}"
     log "  Пользователь:    ${APP_USER}"
     log "  База:            ${DB_MODE} ${DB_HOST}:${DB_PORT}/${DB_NAME}"
+    log "  SQL-логин:       ${DB_USER}"
     log "  Журнал службы:   journalctl -u portal"
     log "  Каталог логов:   ${LOG_DIR}"
     log "  Бэкапы:          ${BACKUP_DIR} (${BACKUP_SCHEDULE})"

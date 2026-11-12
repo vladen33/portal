@@ -19,9 +19,13 @@ app_create_user() {
 
 # Создаёт каталоги приложения, файлов, логов и бэкапов.
 app_create_dirs() {
-    run install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$APP_DIR"
+    # APP_DIR доступен на чтение nginx: он отдаёт из него статику.
+    run install -d -m 755 -o "$APP_USER" -g "$APP_USER" "$APP_DIR"
+    # MEDIA_ROOT nginx не раздаёт, поэтому права закрытые.
     run install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$MEDIA_ROOT"
-    run install -d -m 750 -o root -g root "$LOG_DIR"
+    # Журналы пишет само приложение (django.log), поэтому владелец —
+    # пользователь портала; root всё равно может писать сюда.
+    run install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$LOG_DIR"
     run install -d -m 700 -o root -g root "$BACKUP_DIR"
 }
 
@@ -29,10 +33,14 @@ app_create_dirs() {
 app_sync_code() {
     if [ "$SOURCE_DIR" = "$APP_DIR" ]; then
         log "код уже находится в ${APP_DIR}"
+        run chown -R "${APP_USER}:${APP_USER}" "$APP_DIR"
         return 0
     fi
     log "копируем код: ${SOURCE_DIR} -> ${APP_DIR}"
-    run rsync -a \
+    # --delete убирает файлы, удалённые из репозитория: иначе в каталоге
+    # установки остаются старые модули. Исключённые пути (.env, media,
+    # venv, staticfiles) rsync не удаляет.
+    run rsync -a --delete \
         --exclude venv/ \
         --exclude .venv/ \
         --exclude .env \
@@ -43,6 +51,7 @@ app_sync_code() {
         --exclude __pycache__/ \
         --exclude .pytest_cache/ \
         --exclude .ruff_cache/ \
+        --exclude logs/ \
         "${SOURCE_DIR}/" "${APP_DIR}/"
     run chown -R "${APP_USER}:${APP_USER}" "$APP_DIR"
 }
@@ -109,6 +118,7 @@ app_write_env() {
     export T_HSTS_SECONDS="$HSTS_SECONDS"
     export T_CSRF_ORIGINS="$CSRF_ORIGINS"
     export T_MEDIA_ROOT="$MEDIA_ROOT"
+    export T_LOG_DIR="$LOG_DIR"
     export T_APP_DIR="$APP_DIR"
     export T_SA_PASSWORD="$SA_PASSWORD"
     export T_MSSQL_HOST_PORT="$MSSQL_HOST_PORT"
@@ -164,6 +174,8 @@ app_superuser_create() {
 app_prepare_django() {
     run_in_app "$APP_USER" venv/bin/python manage.py migrate --noinput
     run_in_app "$APP_USER" venv/bin/python manage.py collectstatic --noinput
+    # nginx работает от www-data и должен читать собранную статику.
+    run chmod -R o+rX "${APP_DIR}/staticfiles"
     run_in_app "$APP_USER" venv/bin/python manage.py setup_portal_roles
     app_superuser_create
 }

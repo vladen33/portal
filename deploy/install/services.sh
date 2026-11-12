@@ -11,6 +11,8 @@ CRON_FILE="/etc/cron.d/portal-backup"
 services_install_unit() {
     export T_APP_DIR="$APP_DIR"
     export T_APP_USER="$APP_USER"
+    # Каталог журналов нужен службе на запись (ProtectSystem=strict).
+    export T_LOG_DIR="$LOG_DIR"
 
     render_template \
         "${DEPLOY_DIR}/templates/portal.service.in" \
@@ -75,8 +77,10 @@ acceptance_checks() {
     fi
 
     log "проверка конфигурации Django"
+    # ERROR важен: предупреждения (HSTS при самоподписанном сертификате)
+    # установку не останавливают, а ошибки — останавливают.
     run_in_app "$APP_USER" venv/bin/python \
-        manage.py check --deploy
+        manage.py check --deploy --fail-level=ERROR
 
     local scheme="http" port=80 opts=()
     if [ "$TLS_MODE" != "none" ]; then
@@ -84,6 +88,25 @@ acceptance_checks() {
         port=443
         opts=(-k)
     fi
+
+    # Статику отдаёт nginx: проверяем, что права выставлены верно.
+    local static_url="${scheme}://${DOMAIN}/static/css/base.css"
+    if curl "${opts[@]}" -fsS --max-time 15 \
+        --resolve "${DOMAIN}:${port}:127.0.0.1" "$static_url" >/dev/null; then
+        log "статика доступна: ${static_url}"
+    else
+        die "nginx не отдаёт статику (${static_url}): проверьте права на ${APP_DIR}/staticfiles"
+    fi
+
+    # Проверка живости: приложение и база.
+    local health_url="${scheme}://${DOMAIN}/healthz/"
+    if curl "${opts[@]}" -fsS --max-time 15 \
+        --resolve "${DOMAIN}:${port}:127.0.0.1" "$health_url" >/dev/null; then
+        log "проверка живости пройдена: ${health_url}"
+    else
+        die "проверка живости не пройдена (${health_url}): journalctl -u portal -n 50"
+    fi
+
     local url="${scheme}://${DOMAIN}/accounts/login/"
 
     if curl "${opts[@]}" -fsS --max-time 15 \

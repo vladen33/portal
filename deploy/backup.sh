@@ -35,22 +35,47 @@ MEDIA_DIR="${MEDIA_DIR:-${APP_DIR}/media}"
 : "${DB_USER:?DB_USER не задан в .env}"
 : "${DB_PASSWORD:?DB_PASSWORD не задан в .env}"
 
+# --- Проверка режима -------------------------------------------------------
+# Дамп делает контейнер MSSQL. Во внешнем режиме копию настраивают
+# на стороне сервера БД, здесь поддерживать её нельзя.
+DB_MODE="$(read_env DEPLOY_DB_MODE)"
+if [ "${DB_MODE}" = "external" ]; then
+    echo "Режим external: бэкап MSSQL настраивается на сервере БД." >&2
+    exit 1
+fi
+if ! command -v docker >/dev/null 2>&1; then
+    echo "Не найден docker: бэкап контейнера MSSQL невозможен." >&2
+    exit 1
+fi
+
 STAMP="$(date +%Y%m%d-%H%M%S)"
 mkdir -p "${BACKUP_DIR}"
 
 # --- База данных ----------------------------------------------------------
 DB_FILE="/var/opt/mssql/backup/${DB_NAME}-${STAMP}.bak"
 docker exec "${MSSQL_CONTAINER}" mkdir -p /var/opt/mssql/backup
+SQLCMD="/opt/mssql-tools18/bin/sqlcmd"
+if ! docker exec "${MSSQL_CONTAINER}" test -x "${SQLCMD}"; then
+    echo "В контейнере ${MSSQL_CONTAINER} нет ${SQLCMD}." >&2
+    exit 1
+fi
 # Пароль передаём переменной окружения SQLCMDPASSWORD: он не виден
 # в списке процессов хоста и не попадает в лог cron.
 SQLCMDPASSWORD="${DB_PASSWORD}" docker exec -i \
     -e SQLCMDPASSWORD "${MSSQL_CONTAINER}" \
-    /opt/mssql-tools18/bin/sqlcmd \
+    "${SQLCMD}" \
     -S localhost -U "${DB_USER}" -C \
     -Q "BACKUP DATABASE [${DB_NAME}] TO DISK = N'${DB_FILE}' WITH INIT, CHECKSUM"
 docker cp "${MSSQL_CONTAINER}:${DB_FILE}" \
     "${BACKUP_DIR}/${DB_NAME}-${STAMP}.bak"
 docker exec "${MSSQL_CONTAINER}" rm -f "${DB_FILE}"
+
+# --- Настройки приложения --------------------------------------------------
+# Без копии .env восстановление неполное: нужны SECRET_KEY и параметры БД.
+if [ -f "${ENV_FILE}" ]; then
+    cp -a "${ENV_FILE}" "${BACKUP_DIR}/env-${STAMP}.bak"
+    chmod 600 "${BACKUP_DIR}/env-${STAMP}.bak"
+fi
 
 # --- Файлы MEDIA_ROOT ------------------------------------------------------
 if [ -d "${MEDIA_DIR}" ]; then
