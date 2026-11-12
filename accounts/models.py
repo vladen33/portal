@@ -4,12 +4,32 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
+def normalize_ad_login(value):
+    """Приводит доменный логин к единому виду.
+
+    Доменный логин (``sAMAccountName``) регистронезависим, но
+    уникальный индекс SQLite регистрозависим, поэтому храним
+    значение в нижнем регистре. UPN вида ``ivanov@example.local``
+    сводим к ``ivanov``. Пустое значение превращаем в ``None``:
+    несколько NULL уникальный индекс не нарушают, а несколько
+    пустых строк — нарушают.
+    """
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    if '@' in normalized:
+        normalized = normalized.split('@', 1)[0]
+    return normalized or None
+
+
 class User(AbstractUser):
     """Пользователь портала СМК.
 
     Расширяет стандартного пользователя Django полями кадрового
-    учёта. Самостоятельная регистрация не предусмотрена: учётные
-    записи создаёт администратор портала через админку.
+    учёта. Самостоятельная регистрация не предусмотрена: локальные
+    учётные записи создаёт администратор портала, доменные —
+    создаются автоматически при первом входе через Active Directory
+    (JIT) по правилам ``accounts.backends.ADBackend``.
 
     Модель подключена через ``AUTH_USER_MODEL`` и должна быть
     описана до первой миграции — заменить её позже крайне сложно.
@@ -50,11 +70,42 @@ class User(AbstractUser):
         choices=AuthSource.choices,
         default=AuthSource.LOCAL,
     )
+    # Доменный логин, по которому портал находит эту учётную запись
+    # при входе через Active Directory. Может отличаться от username:
+    # username — внутренний логин портала, ad_login — sAMAccountName.
+    # Заполняется автоматически при JIT-создании либо вручную
+    # администратором, когда логины не совпадают.
+    ad_login = models.CharField(
+        'доменный логин (AD)',
+        max_length=150,
+        null=True,
+        blank=True,
+        unique=True,
+        help_text=(
+            'Логин в домене (sAMAccountName), например ivanov. '
+            'По нему портал находит учётную запись при входе '
+            'через Active Directory.'
+        ),
+    )
 
     class Meta:
         verbose_name = 'пользователь'
         verbose_name_plural = 'пользователи'
         ordering = ['username']
+
+    def clean(self):
+        """Нормализует доменный логин перед проверкой формы."""
+        super().clean()
+        self.ad_login = normalize_ad_login(self.ad_login)
+
+    def save(self, *args, **kwargs):
+        """Нормализует доменный логин перед сохранением.
+
+        Поле заполняется и из админки, и backend'ом JIT-создания,
+        поэтому нормализация нужна в модели, а не только в форме.
+        """
+        self.ad_login = normalize_ad_login(self.ad_login)
+        super().save(*args, **kwargs)
 
     def get_full_name(self):
         """Возвращает ФИО в формате «Фамилия Имя Отчество»."""

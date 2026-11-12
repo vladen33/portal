@@ -9,3 +9,8 @@ class AccountsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'accounts'
     verbose_name = 'Пользователи'
+
+    def ready(self):
+        """Подключает системные проверки настроек AD."""
+        # Импорт нужен ради регистрации проверок в django.core.checks.
+        from accounts import checks  # noqa: F401

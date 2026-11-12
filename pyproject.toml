@@ -42,3 +42,9 @@ python_files = ["test_*.py", "*_test.py"]
 addopts = "-n auto -q --strict-markers"
 # Каталоги, в которых ищем тесты.
 testpaths = ["accounts", "documents"]
+# Сторонние библиотеки шумят DeprecationWarning при импорте:
+# ldap3 использует устаревшие имена из pyasn1.
+filterwarnings = [
+    "ignore::DeprecationWarning:ldap3.*",
+    "ignore::DeprecationWarning:pyasn1.*",
+]

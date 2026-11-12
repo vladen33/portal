@@ -1,0 +1,35 @@
+# MS SQL Server для проверки функций, зависящих от СУБД.
+#
+# Запуск (из корня проекта, чтобы compose нашёл .env):
+#   docker compose -f deploy/docker-compose.mssql.yml up -d
+# Остановка:
+#   docker compose -f deploy/docker-compose.mssql.yml down
+#
+# Пароль SA задаётся в .env (MSSQL_SA_PASSWORD) и должен
+# соответствовать политике SQL Server: не короче 8 символов,
+# заглавные и строчные буквы, цифры и спецсимвол.
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: portal-ksmk-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Задайте MSSQL_SA_PASSWORD в .env}"
+      MSSQL_PID: "Developer"
+    ports:
+      # Порт открыт только на localhost: база не видна в сети.
+      - "127.0.0.1:1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - timeout 2 bash -c '</dev/tcp/127.0.0.1/1433'
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  mssql-data:

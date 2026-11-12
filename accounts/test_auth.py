@@ -70,6 +70,35 @@ def test_ad_login_rejected(client, user):
     assert 'Active Directory' in response.content.decode()
 
 
+def test_ad_form_does_not_reject_when_enabled(
+    client,
+    user,
+    settings,
+    monkeypatch,
+):
+    """При включённом AD форма пропускает режим к backend'у."""
+    settings.AD_ENABLED = True
+    captured = {}
+
+    def fake_authenticate(request, username=None, password=None, **kwargs):
+        captured.update(kwargs)
+        return user
+
+    monkeypatch.setattr('accounts.forms.authenticate', fake_authenticate)
+
+    response = client.post(
+        reverse('accounts:login'),
+        {
+            'username': 'ivanov',
+            'password': 'secret-pass-123',
+            'auth_source': 'ad',
+        },
+    )
+
+    assert captured['auth_source'] == 'ad'
+    assert response.status_code == 302
+
+
 def test_inactive_user_cannot_login(client):
     """Заблокированный пользователь не может войти."""
     User.objects.create_user(

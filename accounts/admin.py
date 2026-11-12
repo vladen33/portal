@@ -31,6 +31,7 @@ class PortalUserAdmin(UserAdmin):
     )
     search_fields = (
         'username',
+        'ad_login',
         'last_name',
         'first_name',
         'middle_name',
@@ -47,6 +48,7 @@ class PortalUserAdmin(UserAdmin):
                     'position',
                     'department',
                     'auth_source',
+                    'ad_login',
                 ),
             },
         ),
@@ -61,7 +63,20 @@ class PortalUserAdmin(UserAdmin):
                     'position',
                     'department',
                     'auth_source',
+                    'ad_login',
                 ),
             },
         ),
     )
+
+    def get_readonly_fields(self, request, obj=None):
+        """Запрещает менять локальный пароль доменной учётной записи.
+
+        Пароль доменного пользователя проверяется в Active Directory.
+        Если оставить поле редактируемым, администратор может задать
+        локальный пароль и обойти доменную аутентификацию.
+        """
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj is not None and obj.auth_source == User.AuthSource.AD:
+            readonly.append('password')
+        return readonly

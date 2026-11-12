@@ -145,13 +145,60 @@ else:
 # заменить её потом крайне сложно.
 AUTH_USER_MODEL = 'accounts.User'
 
-# Сейчас поддерживается только вход по учётной записи портала.
-# Позже рядом появится backend для Active Directory.
-AUTHENTICATION_BACKENDS = ['accounts.backends.PortalBackend']
+# Список backend'ов собирается ниже, после настроек Active Directory:
+# PortalBackend обслуживает локальные учётные записи, ADBackend —
+# доменные (включается только при AD_ENABLED=True).
 
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/documents/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# --- Active Directory -------------------------------------------------------
+
+# Вход через AD включается только явно, после настройки домена.
+AD_ENABLED = env_bool('AD_ENABLED', default=False)
+
+# Адрес каталога. Пароли доменных учётных записей должны идти
+# только по шифрованному каналу: ldaps:// либо ldap:// + StartTLS.
+AD_SERVER_URI = os.getenv('AD_SERVER_URI', '')
+AD_USE_STARTTLS = env_bool('AD_USE_STARTTLS', default=False)
+# PEM-файл корпоративного УЦ: им проверяется сертификат контроллера.
+AD_CA_CERT_FILE = os.getenv('AD_CA_CERT_FILE', '')
+# Отключать проверку сертификата нельзя на production.
+AD_TLS_VERIFY = env_bool('AD_TLS_VERIFY', default=True)
+
+# Сервисная учётная запись для поиска сотрудников в каталоге.
+AD_BIND_DN = os.getenv('AD_BIND_DN', '')
+AD_BIND_PASSWORD = os.getenv('AD_BIND_PASSWORD', '')
+AD_USER_SEARCH_BASE = os.getenv('AD_USER_SEARCH_BASE', '')
+
+# Доменная группа, члены которой допускаются на портал.
+# Если пусто — допускается любой сотрудник домена.
+AD_REQUIRED_GROUP = os.getenv('AD_REQUIRED_GROUP', '')
+# Группа Django, в которую попадают JIT-пользователи.
+AD_DEFAULT_GROUP = os.getenv(
+    'AD_DEFAULT_GROUP',
+    'Пользователи портала',
+)
+# Обновлять ФИО и кадровые поля при каждом входе через AD.
+AD_SYNC_ATTRIBUTES = env_bool('AD_SYNC_ATTRIBUTES', default=True)
+
+# Соответствие полей User атрибутам каталога.
+# Поле username из AD не заполняется специально: внутренний логин
+# портала может отличаться от доменного (см. User.ad_login).
+AD_ATTR_MAP = {
+    'last_name': 'sn',
+    'first_name': 'givenName',
+    'middle_name': 'middleName',
+    'email': 'mail',
+    'position': 'title',
+    'department': 'department',
+}
+
+# Порядок важен: Django перебирает backend'ы по очереди.
+AUTHENTICATION_BACKENDS = ['accounts.backends.PortalBackend']
+if AD_ENABLED:
+    AUTHENTICATION_BACKENDS.append('accounts.backends.ADBackend')
 
 # Стандартные валидаторы пароля Django.
 AUTH_PASSWORD_VALIDATORS = [

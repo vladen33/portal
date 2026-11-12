@@ -1,6 +1,7 @@
 """Формы аутентификации портала."""
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import AuthenticationForm
 
@@ -38,9 +39,10 @@ class PortalAuthenticationForm(AuthenticationForm):
         """
         auth_source = self.cleaned_data.get('auth_source', 'local')
 
-        # Режим Active Directory ещё не настроен: сообщаем явно,
-        # а не показываем общее «неверный логин или пароль».
-        if auth_source == 'ad':
+        # Режим Active Directory может быть выключен настройками
+        # портала: тогда сообщаем это явно, а не показываем общее
+        # «неверный логин или пароль».
+        if auth_source == 'ad' and not settings.AD_ENABLED:
             raise forms.ValidationError(
                 'Вход через Active Directory пока не настроен. '
                 'Используйте учётную запись портала.'
